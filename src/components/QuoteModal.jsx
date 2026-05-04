@@ -10,9 +10,6 @@ function Field({ label, id, name, type = 'text', placeholder }) {
   )
 }
 
-function encode(data) {
-  return Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&')
-}
 
 export default function QuoteModal({ open, onClose }) {
   const [status, setStatus] = useState('idle') // idle | submitting | success | error
@@ -33,20 +30,12 @@ export default function QuoteModal({ open, onClose }) {
 
   const handleSubmit = async e => {
     e.preventDefault()
-    const form = e.target
-    const data = {
-      'form-name': 'engagement',
-      name: form.name.value,
-      email: form.email.value,
-      company: form.company.value,
-      message: form.message.value,
-    }
     setStatus('submitting')
     try {
       const res = await fetch('/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: encode(data),
+        body: new URLSearchParams(new FormData(e.target)).toString(),
       })
       if (!res.ok) throw new Error()
       setStatus('success')
