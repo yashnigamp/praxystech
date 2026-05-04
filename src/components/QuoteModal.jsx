@@ -1,18 +1,25 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../icons'
 
-function Field({ label, id, type = 'text', placeholder }) {
+function Field({ label, id, name, type = 'text', placeholder }) {
   return (
     <div>
       <label htmlFor={id} className="mono" style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>{label}</label>
-      <input id={id} type={type} placeholder={placeholder} style={{ marginTop: 8, width: '100%', padding: '14px 16px', border: '1px solid var(--line)', background: 'transparent', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)' }} />
+      <input id={id} name={name} type={type} placeholder={placeholder} required style={{ marginTop: 8, width: '100%', padding: '14px 16px', border: '1px solid var(--line)', background: 'transparent', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, color: 'var(--ink)' }} />
     </div>
   )
 }
 
+function encode(data) {
+  return Object.keys(data).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(data[k])).join('&')
+}
+
 export default function QuoteModal({ open, onClose }) {
+  const [status, setStatus] = useState('idle') // idle | submitting | success | error
+
   useEffect(() => {
     if (!open) return
+    setStatus('idle')
     const onKey = e => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', onKey)
     document.body.style.overflow = 'hidden'
@@ -23,6 +30,30 @@ export default function QuoteModal({ open, onClose }) {
   }, [open, onClose])
 
   if (!open) return null
+
+  const handleSubmit = async e => {
+    e.preventDefault()
+    const form = e.target
+    const data = {
+      'form-name': 'engagement',
+      name: form.name.value,
+      email: form.email.value,
+      company: form.company.value,
+      message: form.message.value,
+    }
+    setStatus('submitting')
+    try {
+      const res = await fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: encode(data),
+      })
+      if (!res.ok) throw new Error()
+      setStatus('success')
+    } catch {
+      setStatus('error')
+    }
+  }
 
   return (
     <div
@@ -37,26 +68,55 @@ export default function QuoteModal({ open, onClose }) {
           <Icon.close size={16} />
         </button>
 
-        <div className="eyebrow" style={{ color: 'var(--muted)' }}>(✱) Engagement intake</div>
-        <h3 className="serif" style={{ fontSize: 40, lineHeight: 1, letterSpacing: '-0.02em', marginTop: 14 }}>
-          Scope a <span className="serif-i">project</span>.
-        </h3>
-        <p style={{ marginTop: 14, fontSize: 15, color: 'var(--muted)', lineHeight: 1.55 }}>
-          A partner replies within one business day. No SDR funnel.
-        </p>
-
-        <form onSubmit={e => { e.preventDefault(); onClose() }} style={{ marginTop: 28, display: 'grid', gap: 18 }}>
-          <Field label="Full name" id="qm-n" placeholder="Jane Doe" />
-          <Field label="Work email" id="qm-e" type="email" placeholder="jane@company.com" />
-          <Field label="Company" id="qm-c" placeholder="Acme Capital" />
-          <div>
-            <label htmlFor="qm-m" className="mono" style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>What are you trying to ship?</label>
-            <textarea id="qm-m" placeholder="A few lines is enough — we'll come back with smart questions." style={{ marginTop: 8, width: '100%', minHeight: 120, padding: 14, border: '1px solid var(--line)', background: 'transparent', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, resize: 'vertical', color: 'var(--ink)' }} />
+        {status === 'success' ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 999, background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
+              <Icon.arrow size={20} />
+            </div>
+            <h3 className="serif" style={{ fontSize: 36, lineHeight: 1, letterSpacing: '-0.02em' }}>Brief received.</h3>
+            <p style={{ marginTop: 16, fontSize: 15, color: 'var(--muted)', lineHeight: 1.6 }}>
+              A partner will reply within one business day.<br />Check your inbox for a confirmation.
+            </p>
+            <button onClick={onClose} className="btn-primary" style={{ justifyContent: 'center', padding: '14px 28px', marginTop: 32 }}>
+              Close <Icon.close size={14} />
+            </button>
           </div>
-          <button type="submit" className="btn-primary" style={{ justifyContent: 'center', padding: '16px 24px', marginTop: 4 }}>
-            Send engagement brief <Icon.arrow size={14} />
-          </button>
-        </form>
+        ) : (
+          <>
+            <div className="eyebrow" style={{ color: 'var(--muted)' }}>(✱) Engagement intake</div>
+            <h3 className="serif" style={{ fontSize: 40, lineHeight: 1, letterSpacing: '-0.02em', marginTop: 14 }}>
+              Scope a <span className="serif-i">project</span>.
+            </h3>
+            <p style={{ marginTop: 14, fontSize: 15, color: 'var(--muted)', lineHeight: 1.55 }}>
+              A partner replies within one business day. No SDR funnel.
+            </p>
+
+            <form
+              name="engagement"
+              method="POST"
+              data-netlify="true"
+              data-netlify-honeypot="bot-field"
+              onSubmit={handleSubmit}
+              style={{ marginTop: 28, display: 'grid', gap: 18 }}
+            >
+              <input type="hidden" name="form-name" value="engagement" />
+              <input name="bot-field" type="hidden" />
+              <Field label="Full name" id="qm-n" name="name" placeholder="Jane Doe" />
+              <Field label="Work email" id="qm-e" name="email" type="email" placeholder="jane@company.com" />
+              <Field label="Company" id="qm-c" name="company" placeholder="Acme Capital" />
+              <div>
+                <label htmlFor="qm-m" className="mono" style={{ fontSize: 11, color: 'var(--muted)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>What are you trying to ship?</label>
+                <textarea id="qm-m" name="message" required placeholder="A few lines is enough — we'll come back with smart questions." style={{ marginTop: 8, width: '100%', minHeight: 120, padding: 14, border: '1px solid var(--line)', background: 'transparent', borderRadius: 12, fontFamily: 'inherit', fontSize: 15, resize: 'vertical', color: 'var(--ink)' }} />
+              </div>
+              {status === 'error' && (
+                <p className="mono" style={{ fontSize: 12, color: '#ef4444' }}>Something went wrong — please try again or email us directly.</p>
+              )}
+              <button type="submit" disabled={status === 'submitting'} className="btn-primary" style={{ justifyContent: 'center', padding: '16px 24px', marginTop: 4, opacity: status === 'submitting' ? 0.6 : 1 }}>
+                {status === 'submitting' ? 'Sending…' : <>Send engagement brief <Icon.arrow size={14} /></>}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   )
